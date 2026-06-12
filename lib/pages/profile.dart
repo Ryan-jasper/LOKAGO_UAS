@@ -2102,28 +2102,6 @@ class _NotificationSettingsPageState extends State<_NotificationSettingsPage> {
                 value: _settings['badgeNotification'] ?? true,
                 onChanged: (value) => _setValue('badgeNotification', value),
               ),
-              const SizedBox(height: 18),
-              Button(
-                text: 'TEST NOTIFIKASI',
-                onTap: () async {
-                  await NotificationService.instance.showTestNotification();
-
-                  if (!context.mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Test notifikasi dikirim.'),
-                    ),
-                  );
-                },
-                buttonColor: const Color(0xFF0F9D6C),
-                shadowColor: const Color(0xFF6CC1A8),
-                leading: const Icon(
-                  Icons.notifications_active_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
               const SizedBox(height: 12),
               Button(
                 text: _isSaving ? 'MENYIMPAN...' : 'SIMPAN NOTIFIKASI',
