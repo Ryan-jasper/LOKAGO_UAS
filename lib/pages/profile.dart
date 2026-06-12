@@ -8,6 +8,7 @@ import 'peta.dart';
 import 'streak.dart';
 import 'splash.dart';
 import 'dart:async';
+import '../services/notification_service.dart';
 
 const Color _bgColor = Color(0xFFF4F4F4);
 const Color _coral = Color(0xFFE2775B);
@@ -1987,48 +1988,59 @@ class _NotificationSettingsPageState extends State<_NotificationSettingsPage> {
   }
 
   Future<void> _saveSettings() async {
-    final user = _auth.currentUser;
+      final user = _auth.currentUser;
 
-    if (user == null) return;
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await _db.collection('users').doc(user.uid).set(
-        {
-          'notificationSettings': _settings,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pengaturan notifikasi berhasil disimpan.'),
-        ),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menyimpan notifikasi: $e'),
-        ),
-      );
-    } finally {
-      if (!mounted) return;
+      if (user == null) return;
 
       setState(() {
-        _isSaving = false;
+        _isSaving = true;
       });
+
+      try {
+        await _db.collection('users').doc(user.uid).set(
+          {
+            'notificationSettings': _settings,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        final studyReminderEnabled = _settings['studyReminder'] ?? true;
+
+        if (studyReminderEnabled) {
+          await NotificationService.instance.scheduleDailyReminder(
+            hour: 19,
+            minute: 0,
+          );
+        } else {
+          await NotificationService.instance.cancelDailyReminder();
+        }
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pengaturan notifikasi berhasil disimpan.'),
+          ),
+        );
+
+        Navigator.pop(context);
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan notifikasi: $e'),
+          ),
+        );
+      } finally {
+        if (!mounted) return;
+
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
-  }
 
   void _setValue(String key, bool value) {
     setState(() {
@@ -2091,6 +2103,28 @@ class _NotificationSettingsPageState extends State<_NotificationSettingsPage> {
                 onChanged: (value) => _setValue('badgeNotification', value),
               ),
               const SizedBox(height: 18),
+              Button(
+                text: 'TEST NOTIFIKASI',
+                onTap: () async {
+                  await NotificationService.instance.showTestNotification();
+
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Test notifikasi dikirim.'),
+                    ),
+                  );
+                },
+                buttonColor: const Color(0xFF0F9D6C),
+                shadowColor: const Color(0xFF6CC1A8),
+                leading: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 12),
               Button(
                 text: _isSaving ? 'MENYIMPAN...' : 'SIMPAN NOTIFIKASI',
                 onTap: _isSaving ? () {} : _saveSettings,
@@ -3242,9 +3276,9 @@ String _initials(String name) {
       .toUpperCase();
 }
 String _languageShortNameFromId(String languageId) {
+  if (languageId == 'batak_toba') return 'Batak';
   if (languageId == 'jawa') return 'Jawa';
   if (languageId == 'bali') return 'Bali';
-  if (languageId == 'madura') return 'Madura';
 
   return 'Sunda';
 }

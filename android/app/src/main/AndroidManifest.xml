@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
-        android:label="application_1_0"
+        android:label="LOKAGO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
