@@ -28,42 +28,46 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
 
   Future<UserCredential> signUpWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    final userCredential = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
+  required String email,
+  required String password,
+}) async {
+  final userCredential = await _auth.createUserWithEmailAndPassword(
+    email: email,
+    password: password,
+  );
+
+  final user = userCredential.user;
+
+  if (user != null) {
+    await _ensureUserDocument(
+      user,
+      provider: 'email',
     );
-
-    final user = userCredential.user!;
-
-    try {
-      await _firestore.collection('users').doc(user.uid).set({
-        'email': user.email ?? email,
-        'name': user.displayName ?? '',
-        'photoUrl': user.photoURL ?? '',
-        'provider': 'email',
-        'onboardingCompleted': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      print('Firestore save failed after signup: $e');
-    }
-
-    return userCredential;
   }
+
+  return userCredential;
+}
 
   Future<UserCredential> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    return await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
+  required String email,
+  required String password,
+}) async {
+  final userCredential = await _auth.signInWithEmailAndPassword(
+    email: email,
+    password: password,
+  );
+
+  final user = userCredential.user;
+
+  if (user != null) {
+    await _ensureUserDocument(
+      user,
+      provider: 'email',
     );
   }
+
+  return userCredential;
+}
 
   Future<UserCredential> signInWithGoogle() async {
     await _ensureGoogleInitialized();
@@ -81,19 +85,10 @@ class AuthService {
     final userCredential = await _auth.signInWithCredential(credential);
     final user = userCredential.user!;
 
-    try {
-      await _firestore.collection('users').doc(user.uid).set({
-        'email': user.email ?? '',
-        'name': user.displayName ?? '',
-        'photoUrl': user.photoURL ?? '',
-        'provider': 'google',
-        'onboardingCompleted': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      print('Firestore save failed after google sign in: $e');
-    }
+    await _ensureUserDocument(
+  user,
+  provider: 'google',
+);
 
     return userCredential;
   }
@@ -126,4 +121,49 @@ class AuthService {
       newPassword: newPassword,
     );
   }
+
+  Future<void> _ensureUserDocument(
+  User user, {
+  String provider = 'email',
+}) async {
+  final userRef = _firestore.collection('users').doc(user.uid);
+  final userDoc = await userRef.get();
+
+  if (!userDoc.exists) {
+    await userRef.set({
+      'email': user.email ?? '',
+      'name': user.displayName ?? '',
+      'birthDate': null,
+      'selectedLanguageId': 'sunda',
+      'selectedLanguage': 'Bahasa Sunda',
+      'hearts': 5,
+      'maxHearts': 5,
+      'streakDays': 0,
+      'lastStudyDate': null,
+      'earnedBadgeIds': [],
+      'displayBadgeId': null,
+      'notificationSettings': {
+        'dailyReminder': true,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await userRef.collection('languageProgress').doc('sunda').set({
+      'languageId': 'sunda',
+      'currentLevel': 0,
+      'maxUnlockedLevel': 1,
+      'completedLevels': [],
+      'totalXp': 0,
+      'lastCompletedLevel': null,
+      'lastStudiedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  } else {
+    await userRef.set({
+      'email': user.email ?? '',
+      'name': user.displayName ?? '',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+}
 }
