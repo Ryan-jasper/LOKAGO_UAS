@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../widgets/option.dart';
 import '../../widgets/progressbar.dart';
 import 'onboarding_level.dart';
@@ -11,12 +12,27 @@ class OnboardingLanguagePage extends StatefulWidget {
 }
 
 class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
-  String? selectedLanguage;
+  _LanguageChoice? selectedLanguage;
 
-  final List<String> languages = [
-    'Bahasa Jawa',
-    'Bahasa Sunda',
-    'Bahasa Batak',
+  final List<_LanguageChoice> languages = const [
+    _LanguageChoice(
+      id: 'sunda',
+      name: 'Bahasa Sunda',
+      nativeName: 'Basa Sunda',
+      region: 'Jawa Barat dan Banten',
+    ),
+    _LanguageChoice(
+      id: 'jawa',
+      name: 'Bahasa Jawa',
+      nativeName: 'Basa Jawa',
+      region: 'Jawa Tengah, Yogyakarta, Jawa Timur',
+    ),
+    _LanguageChoice(
+      id: 'batak_toba',
+      name: 'Bahasa Batak Toba',
+      nativeName: 'Hata Batak Toba',
+      region: 'Sumatra Utara',
+    ),
   ];
 
   @override
@@ -49,13 +65,11 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
               child: Column(
                 children: [
                   const SizedBox(height: 18),
-
                   Progressbar(
                     progress: 0.25,
                     onBack: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: 26),
-
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Stack(
@@ -119,9 +133,7 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
                   Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
@@ -132,9 +144,7 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
                   Expanded(
                     child: Stack(
                       children: [
@@ -146,11 +156,12 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                           itemCount: languages.length,
                           itemBuilder: (context, index) {
                             final language = languages[index];
+
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 20),
                               child: Option(
-                                title: language,
-                                isSelected: selectedLanguage == language,
+                                title: language.name,
+                                isSelected: selectedLanguage?.id == language.id,
                                 onTap: () {
                                   setState(() {
                                     selectedLanguage = language;
@@ -203,9 +214,7 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -215,7 +224,7 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => OnboardingLevelPage(
-                                    selectedLanguage: selectedLanguage!,
+                                    selectedLanguage: selectedLanguage!.name,
                                   ),
                                 ),
                               );
@@ -234,16 +243,18 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                       ),
-                      child: const Text(
-                        'LANJUT',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                      child: Text(
+                        isSelected
+                            ? 'LANJUT BELAJAR ${selectedLanguage!.shortName.toUpperCase()}'
+                            : 'LANJUT',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 18),
                 ],
               ),
@@ -252,5 +263,25 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
         ),
       ),
     );
+  }
+}
+
+class _LanguageChoice {
+  const _LanguageChoice({
+    required this.id,
+    required this.name,
+    required this.nativeName,
+    required this.region,
+  });
+
+  final String id;
+  final String name;
+  final String nativeName;
+  final String region;
+
+  String get shortName {
+    if (id == 'batak_toba') return 'Batak';
+    if (id == 'jawa') return 'Jawa';
+    return 'Sunda';
   }
 }
