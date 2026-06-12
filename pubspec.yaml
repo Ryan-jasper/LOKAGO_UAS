@@ -31,9 +31,9 @@ dependencies:
   flutter:
     sdk: flutter
 
-  firebase_core: ^4.0.0
-  firebase_auth: ^6.0.0
-  cloud_firestore: ^6.0.0
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.2
+  cloud_firestore: ^6.5.0
   google_sign_in: ^7.0.0
   flutter_launcher_icons: ^0.13.1
 
@@ -82,7 +82,8 @@ flutter:
      - assets/images/onboarding/bahasa.png
      - assets/images/onboarding/level.png
      - assets/images/onboarding/akun.png
-     - assets/images/map.png
+     - assets/images/peta/peta.png
+     - assets/images/streak/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

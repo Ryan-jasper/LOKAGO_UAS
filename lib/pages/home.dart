@@ -1,12 +1,183 @@
 import 'dart:math' as math;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'streak.dart';
+import '../services/database_seed_service.dart';
+
+import 'learning/lesson_page.dart';
 import 'peta.dart';
 import 'profile.dart';
+import 'streak.dart';
 
 enum PathNodeType { star, level, test }
+
 enum PathNodeStatus { completed, current, locked }
+
+class _HomeProgress {
+  const _HomeProgress({
+    required this.userName,
+    required this.languageId,
+    required this.languageName,
+    required this.currentLevel,
+    required this.maxUnlockedLevel,
+    required this.completedLevels,
+    required this.totalXp,
+    required this.hearts,
+    required this.maxHearts,
+    required this.streakDays,
+  });
+
+  final String userName;
+  final String languageId;
+  final String languageName;
+  final int currentLevel;
+  final int maxUnlockedLevel;
+  final List<int> completedLevels;
+  final int totalXp;
+  final int hearts;
+  final int maxHearts;
+  final int streakDays;
+
+  int get nextLevel {
+    if (currentLevel >= 30) return 30;
+    return math.min(30, math.max(1, maxUnlockedLevel));
+  }
+
+  double get progressValue {
+    return (currentLevel / 30).clamp(0.0, 1.0).toDouble();
+  }
+
+  int get progressPercent {
+    return (progressValue * 100).round();
+  }
+
+  bool isLevelCompleted(int levelNo) {
+    return completedLevels.contains(levelNo) || levelNo <= currentLevel;
+  }
+
+  bool isLevelCurrent(int levelNo) {
+    return !isLevelCompleted(levelNo) && levelNo == nextLevel;
+  }
+}
+
+class _ThemeUnit {
+  const _ThemeUnit({
+    required this.unitNo,
+    required this.title,
+    required this.startLevel,
+    required this.endLevel,
+  });
+
+  final int unitNo;
+  final String title;
+  final int startLevel;
+  final int endLevel;
+}
+
+_ThemeUnit _themeForLevel(int levelNo) {
+  if (levelNo <= 5) {
+    return const _ThemeUnit(
+      unitNo: 1,
+      title: 'Perkenalan & Sapaan',
+      startLevel: 1,
+      endLevel: 5,
+    );
+  }
+
+  if (levelNo <= 10) {
+    return const _ThemeUnit(
+      unitNo: 2,
+      title: 'Keluarga & Orang Sekitar',
+      startLevel: 6,
+      endLevel: 10,
+    );
+  }
+
+  if (levelNo <= 15) {
+    return const _ThemeUnit(
+      unitNo: 3,
+      title: 'Angka, Waktu & Hari',
+      startLevel: 11,
+      endLevel: 15,
+    );
+  }
+
+  if (levelNo <= 20) {
+    return const _ThemeUnit(
+      unitNo: 4,
+      title: 'Makanan & Belanja',
+      startLevel: 16,
+      endLevel: 20,
+    );
+  }
+
+  if (levelNo <= 25) {
+    return const _ThemeUnit(
+      unitNo: 5,
+      title: 'Arah, Tempat & Perjalanan',
+      startLevel: 21,
+      endLevel: 25,
+    );
+  }
+
+  return const _ThemeUnit(
+    unitNo: 6,
+    title: 'Budaya & Percakapan Harian',
+    startLevel: 26,
+    endLevel: 30,
+  );
+}
+
+String _normalizeLanguageId(String? value) {
+  final raw = (value ?? '').trim().toLowerCase();
+  if (raw.contains('batak') || raw.contains('toba')) return 'batak_toba';
+  if (raw.contains('jawa')) return 'jawa';
+  if (raw.contains('sunda')) return 'sunda';
+
+  return 'sunda';
+}
+
+String _languageNameFromId(String languageId) {
+  if (languageId == 'batak_toba') return 'Bahasa Batak Toba';
+  if (languageId == 'jawa') return 'Bahasa Jawa';
+  return 'Bahasa Sunda';
+}
+
+int _readInt(dynamic value, int fallback) {
+  if (value is int) return value;
+  return int.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
+List<int> _readIntList(dynamic value) {
+  if (value is! List) return [];
+
+  return value
+      .map((item) => int.tryParse(item.toString()))
+      .whereType<int>()
+      .toSet()
+      .toList()
+    ..sort();
+}
+
+String _resolveUserName(Map<String, dynamic> userData, User user) {
+  final possibleNames = [
+    userData['name'],
+    userData['displayName'],
+    userData['fullName'],
+    userData['upf_full_name'],
+    user.displayName,
+  ];
+
+  for (final name in possibleNames) {
+    final value = name?.toString().trim();
+    if (value != null && value.isNotEmpty) {
+      return value;
+    }
+  }
+
+  return 'Bubi';
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,62 +190,29 @@ class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _bubbleController;
 
-  final List<_PathNodeData> nodes = const [
-    _PathNodeData(
-      type: PathNodeType.star,
-      label: 'START',
-      status: PathNodeStatus.completed,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '1',
-      status: PathNodeStatus.completed,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '2',
-      status: PathNodeStatus.completed,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '3',
-      status: PathNodeStatus.current,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '4',
-      status: PathNodeStatus.locked,
-    ),
-    _PathNodeData(
-      type: PathNodeType.test,
-      label: '5',
-      status: PathNodeStatus.locked,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '6',
-      status: PathNodeStatus.locked,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '7',
-      status: PathNodeStatus.locked,
-    ),
-    _PathNodeData(
-      type: PathNodeType.level,
-      label: '8',
-      status: PathNodeStatus.locked,
-    ),
-  ];
-
   @override
-  void initState() {
-    super.initState();
-    _bubbleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
-  }
+@override
+void initState() {
+  super.initState();
+
+  debugPrint('LOKAGO HOME -> initState jalan');
+
+  _bubbleController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  Future.microtask(() async {
+    debugPrint('LOKAGO SEED HOME -> mulai seed');
+
+    try {
+      await DatabaseSeedService.instance.seedSundaDatabase();
+      debugPrint('LOKAGO SEED HOME -> seed berhasil');
+    } catch (e) {
+      debugPrint('LOKAGO SEED HOME -> seed gagal: $e');
+    }
+  });
+}
 
   @override
   void dispose() {
@@ -82,242 +220,290 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
-  void _openComingSoon(String title) {
-    Navigator.push(
+  Future<void> _openLesson(int levelNo) async {
+    debugPrint('LOKAGO HOME -> open lesson levelNo: $levelNo');
+
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => UnderConstructionPage(title: title),
+        builder: (_) => LessonPage(levelNo: levelNo),
+      ),
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  List<_PathNodeData> _buildNodes(_HomeProgress progress) {
+  final nodes = <_PathNodeData>[];
+
+  for (int levelNo = 1; levelNo <= 30; levelNo++) {
+    PathNodeStatus status;
+
+    if (progress.isLevelCompleted(levelNo)) {
+      status = PathNodeStatus.completed;
+    } else if (progress.isLevelCurrent(levelNo)) {
+      status = PathNodeStatus.current;
+    } else {
+      status = PathNodeStatus.locked;
+    }
+
+    nodes.add(
+      _PathNodeData(
+        type: levelNo % 5 == 0 ? PathNodeType.test : PathNodeType.level,
+        label: '$levelNo',
+        status: status,
       ),
     );
   }
 
+  return nodes;
+}
+
   @override
   Widget build(BuildContext context) {
     const bgColor = Color(0xFFF4F4F4);
-    const gold = Color(0xFFF4B11A);
+    const coral = Color(0xFFE2775B);
 
     final user = FirebaseAuth.instance.currentUser;
-    final userName = (user?.displayName != null && user!.displayName!.isNotEmpty)
-        ? user.displayName!
-        : 'Bubi';
 
-    final int hearts = 15;
-    final int streak = 4;
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      bottomNavigationBar: const _LokaBottomNav(currentIndex: 0),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Color(0xFFD9D9D9),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          userName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            '$hearts',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFD6372A),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.favorite_border_rounded,
-                            color: Color(0xFFD6372A),
-                            size: 34,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 24),
-                      Row(
-                        children: [
-                          Text(
-                            '$streak',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: gold,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.local_fire_department_outlined,
-                            color: gold,
-                            size: 34,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _TopContinueCard(
-                    onTap: () => _openComingSoon('Lanjut Belajar'),
-                  ),
-                ],
-              ),
+    if (user == null) {
+      return const Scaffold(
+        backgroundColor: bgColor,
+        body: Center(
+          child: Text(
+            'User belum login.',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final w = constraints.maxWidth;
+          ),
+        ),
+      );
+    }
 
-                  const startY = 70.0;
-                  const gapY = 108.0;
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-                  final xPattern = <double>[
-                    0.50,
-                    0.54,
-                    0.49,
-                    0.53,
-                    0.48,
-                    0.52,
-                    0.49,
-                    0.53,
-                    0.50,
-                  ];
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: userRef.snapshots(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: bgColor,
+            body: Center(
+              child: CircularProgressIndicator(color: coral),
+            ),
+          );
+        }
 
-                  final points = List.generate(nodes.length, (i) {
-                    return Offset(
-                      w * xPattern[i],
-                      startY + (i * gapY),
-                    );
-                  });
+        final userData = userSnapshot.data?.data() ?? <String, dynamic>{};
 
-                  final canvasHeight =
-                      startY + ((nodes.length - 1) * gapY) + 170;
+        final selectedLanguageId = _normalizeLanguageId(
+          userData['selectedLanguageId']?.toString() ??
+              userData['selectedLanguage']?.toString() ??
+              userData['languageId']?.toString(),
+        );
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    child: SizedBox(
-                      height: canvasHeight,
-                      child: Stack(
+        final languageProgressRef =
+            userRef.collection('languageProgress').doc(selectedLanguageId);
+
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: languageProgressRef.snapshots(),
+          builder: (context, progressSnapshot) {
+            final progressData =
+                progressSnapshot.data?.data() ?? <String, dynamic>{};
+
+            final progress = _HomeProgress(
+              userName: _resolveUserName(userData, user),
+              languageId: selectedLanguageId,
+              languageName: progressData['languageName']?.toString() ??
+                  _languageNameFromId(selectedLanguageId),
+              currentLevel: _readInt(progressData['currentLevel'], 0),
+              maxUnlockedLevel: _readInt(
+                progressData['maxUnlockedLevel'],
+                1,
+              ),
+              completedLevels: _readIntList(
+                progressData['completedLevels'],
+              ),
+              totalXp: _readInt(
+                userData['totalXp'],
+                _readInt(progressData['totalXp'], 0),
+              ),
+              hearts: _readInt(userData['hearts'], 5),
+              maxHearts: _readInt(userData['maxHearts'], 15),
+              streakDays: _readInt(userData['streakDays'], 0),
+            );
+
+            final nodes = _buildNodes(progress);
+
+            return Scaffold(
+              backgroundColor: bgColor,
+              bottomNavigationBar: const _LokaBottomNav(currentIndex: 0),
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+                      child: Column(
                         children: [
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: _LearningPathPainter(points: points),
-                            ),
-                          ),
-                          Positioned(
-                            left: math.max(8, points[2].dx - 118),
-                            top: points[2].dy + 18,
-                            child: Column(
-                              children: [
-                                const _SpeechBubble(
-                                  text: 'Semangat!',
-                                  width: 120,
-                                ),
-                                const SizedBox(height: 12),
-                                Image.asset(
-                                  'assets/images/signup/loka.png',
-                                  width: 88,
-                                  errorBuilder: (_, __, ___) {
-                                    return const Icon(
-                                      Icons.smart_toy_rounded,
-                                      size: 82,
-                                      color: Color(0xFFE2775B),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...List.generate(nodes.length, (index) {
-                            final point = points[index];
-                            final node = nodes[index];
-
-                            final bool isCurrent =
-                                node.status == PathNodeStatus.current;
-                            final bool isSpecial =
-                                node.type == PathNodeType.star ||
-                                    node.type == PathNodeType.test;
-
-                            final double outerSize =
-                                isCurrent ? 100 : (isSpecial ? 88 : 84);
-
-                            final double wrapperWidth =
-                                index == 0 ? 112 : outerSize;
-                            final double wrapperHeight =
-                                index == 0 ? 132 : outerSize + 12;
-
-                            return Positioned(
-                              left: point.dx - (wrapperWidth / 2),
-                              top: point.dy - (wrapperHeight / 2),
-                              child: _AnimatedNodeWrapper(
-                                showBubble: index == 0,
-                                controller: _bubbleController,
-                                child: _PathNodeButton(
-                                  data: node,
-                                  onTap: () {
-                                    final title = node.type == PathNodeType.level
-                                        ? 'Level ${node.label}'
-                                        : node.type == PathNodeType.test
-                                            ? 'Test ${node.label}'
-                                            : 'Start';
-                                    _openComingSoon(title);
-                                  },
-                                ),
-                              ),
-                            );
-                          }),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: IgnorePointer(
-                              child: Container(
-                                height: 160,
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Color.fromRGBO(217, 240, 234, 0),
-                                      Color.fromRGBO(217, 240, 234, 0.80),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                          _HomeHeader(progress: progress),
+                          const SizedBox(height: 14),
+                          _TopContinueCard(
+                            statusText: progress.currentLevel == 0
+                                ? 'MULAI BELAJAR'
+                                : 'LANJUTKAN',
+                            title:
+                                '${progress.languageName}:\nUnit ${_themeForLevel(progress.nextLevel).unitNo} - ${_themeForLevel(progress.nextLevel).title}',
+                            subtitle:
+                                'Level ${progress.nextLevel} dari ${_themeForLevel(progress.nextLevel).startLevel}-${_themeForLevel(progress.nextLevel).endLevel}',
+                            progressValue: progress.progressValue,
+                            progressLabel: '${progress.progressPercent}%',
+                            buttonLabel: progress.currentLevel == 0
+                                ? 'Mulai Level 1'
+                                : 'Lanjut Level ${progress.nextLevel}',
+                            onTap: () => _openLesson(progress.nextLevel),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                    Expanded(
+                      child: _LearningPathSection(
+                        nodes: nodes,
+                        onNodeTap: (node) {
+                          if (node.status == PathNodeStatus.locked) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Level ini masih terkunci. Selesaikan level sebelumnya dulu.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final levelNo = int.tryParse(node.label) ?? progress.nextLevel;
+                          _openLesson(levelNo);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.progress,
+  });
+
+  final _HomeProgress progress;
+
+  static const Color red = Color(0xFFD6372A);
+  static const Color gold = Color(0xFFF4B11A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const CircleAvatar(
+          radius: 22,
+          backgroundColor: Color(0xFFD9D9D9),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                progress.userName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${progress.totalXp} XP',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF93A2B8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            Text(
+              '${progress.hearts}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: red,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.favorite_border_rounded,
+              color: red,
+              size: 34,
             ),
           ],
         ),
-      ),
+        const SizedBox(width: 24),
+        Row(
+          children: [
+            Text(
+              '${progress.streakDays}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: gold,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.local_fire_department_outlined,
+              color: gold,
+              size: 34,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
 
 class _TopContinueCard extends StatelessWidget {
-  const _TopContinueCard({required this.onTap});
+  const _TopContinueCard({
+    required this.onTap,
+    required this.statusText,
+    required this.title,
+    required this.subtitle,
+    required this.progressValue,
+    required this.progressLabel,
+    required this.buttonLabel,
+  });
 
   final VoidCallback onTap;
+  final String statusText;
+  final String title;
+  final String subtitle;
+  final double progressValue;
+  final String progressLabel;
+  final String buttonLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -348,27 +534,37 @@ class _TopContinueCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Coming Soon',
-                      style: TextStyle(
+                      statusText,
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                         letterSpacing: 1.2,
                       ),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      'Bahasa Sunda:\nPerkenalan',
-                      style: TextStyle(
+                      title,
+                      style: const TextStyle(
                         fontSize: 20,
                         height: 1.15,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white70,
                       ),
                     ),
                   ],
@@ -385,7 +581,7 @@ class _TopContinueCard extends StatelessWidget {
                       width: 64,
                       height: 64,
                       child: CircularProgressIndicator(
-                        value: 0.65,
+                        value: progressValue,
                         strokeWidth: 7,
                         backgroundColor: Colors.white24,
                         valueColor: const AlwaysStoppedAnimation<Color>(
@@ -394,9 +590,9 @@ class _TopContinueCard extends StatelessWidget {
                         strokeCap: StrokeCap.round,
                       ),
                     ),
-                    const Text(
-                      '65%',
-                      style: TextStyle(
+                    Text(
+                      progressLabel,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -418,18 +614,18 @@ class _TopContinueCard extends StatelessWidget {
                 color: const Color(0xFFF2DFD8),
                 borderRadius: BorderRadius.circular(26),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.play_arrow_rounded,
                     color: Color(0xFFE2775B),
                     size: 28,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
-                    'Buka Nanti',
-                    style: TextStyle(
+                    buttonLabel,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFFE2775B),
@@ -441,6 +637,177 @@ class _TopContinueCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ThemeLabel extends StatelessWidget {
+  const _ThemeLabel({
+    required this.theme,
+  });
+
+  final _ThemeUnit theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 11,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0EC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE2775B).withOpacity(0.35),
+          width: 1.4,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE2775B),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '${theme.unitNo}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '${theme.title} • Level ${theme.startLevel}-${theme.endLevel}',
+              style: const TextStyle(
+                color: Color(0xFF232248),
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LearningPathSection extends StatelessWidget {
+  const _LearningPathSection({
+    required this.nodes,
+    required this.onNodeTap,
+  });
+
+  final List<_PathNodeData> nodes;
+  final ValueChanged<_PathNodeData> onNodeTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+
+        const startY = 80.0;
+        const gapY = 135.0;
+
+        final xPattern = List<double>.generate(
+          nodes.length,
+          (i) {
+            const pattern = [
+              0.50,
+              0.64,
+              0.36,
+              0.62,
+              0.38,
+              0.58,
+              0.42,
+            ];
+
+            return pattern[i % pattern.length];
+          },
+        );
+
+        final points = List.generate(nodes.length, (i) {
+          return Offset(
+            w * xPattern[i],
+            startY + (i * gapY),
+          );
+        });
+
+        final canvasHeight = startY + ((nodes.length - 1) * gapY) + 190;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: SizedBox(
+            width: double.infinity,
+            height: canvasHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _LearningPathPainter(points: points),
+                  ),
+                ),
+
+              
+
+                // Node level
+                ...List.generate(nodes.length, (index) {
+                  final point = points[index];
+                  final node = nodes[index];
+
+                  final bool isCurrent =
+                      node.status == PathNodeStatus.current;
+                  final bool isSpecial = node.type == PathNodeType.star ||
+                      node.type == PathNodeType.test;
+
+                  final double outerSize =
+                      isCurrent ? 100 : (isSpecial ? 88 : 84);
+
+                  return Positioned(
+                    left: point.dx - (outerSize / 2),
+                    top: point.dy - ((outerSize + 12) / 2),
+                    child: _PathNodeButton(
+                      data: node,
+                      onTap: () => onNodeTap(node),
+                    ),
+                  );
+                }),
+
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 180,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color.fromRGBO(244, 244, 244, 0),
+                            Color(0xFFF4F4F4),
+                            Color(0xFFF4F4F4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -470,6 +837,7 @@ class _AnimatedNodeWrapper extends StatelessWidget {
             animation: controller,
             builder: (context, bubble) {
               final offsetY = -2 + (controller.value * 10);
+
               return Positioned(
                 top: offsetY,
                 child: bubble!,
@@ -507,8 +875,7 @@ class _PathNodeButtonState extends State<_PathNodeButton> {
   Widget build(BuildContext context) {
     final colors = _resolveColors();
     final isCurrent = widget.data.status == PathNodeStatus.current;
-    final isSpecial =
-        widget.data.type == PathNodeType.star ||
+    final isSpecial = widget.data.type == PathNodeType.star ||
         widget.data.type == PathNodeType.test;
 
     final double size = isCurrent ? 88 : (isSpecial ? 80 : 76);
@@ -658,7 +1025,9 @@ class _PathNodeButtonState extends State<_PathNodeButton> {
 }
 
 class _FloatingBubble extends StatelessWidget {
-  const _FloatingBubble({required this.text});
+  const _FloatingBubble({
+    required this.text,
+  });
 
   final String text;
 
@@ -716,13 +1085,13 @@ class _FloatingBubble extends StatelessWidget {
 }
 
 class _SpeechBubble extends StatelessWidget {
-  final String text;
-  final double width;
-
   const _SpeechBubble({
     required this.text,
     required this.width,
   });
+
+  final String text;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -779,14 +1148,16 @@ class _SpeechBubble extends StatelessWidget {
 }
 
 class _LearningPathPainter extends CustomPainter {
-  final List<Offset> points;
-
   const _LearningPathPainter({
     required this.points,
   });
 
+  final List<Offset> points;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
     final paintLine = Paint()
       ..color = const Color(0xFFD9D9D9)
       ..strokeWidth = 7
@@ -814,7 +1185,9 @@ class _LearningPathPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LearningPathPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LearningPathPainter oldDelegate) {
+    return oldDelegate.points != points;
+  }
 }
 
 class UnderConstructionPage extends StatelessWidget {
@@ -891,8 +1264,11 @@ class _NodeColors {
 }
 
 class _LokaBottomNav extends StatelessWidget {
+  const _LokaBottomNav({
+    required this.currentIndex,
+  });
+
   final int currentIndex;
-  const _LokaBottomNav({required this.currentIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -925,6 +1301,7 @@ class _LokaBottomNav extends StatelessWidget {
               if (active) return;
 
               Widget page;
+
               switch (index) {
                 case 0:
                   page = const HomePage();
@@ -970,8 +1347,8 @@ class _LokaBottomNav extends StatelessWidget {
 }
 
 class _NavItemData {
+  _NavItemData(this.label, this.icon);
+
   final String label;
   final IconData icon;
-
-  _NavItemData(this.label, this.icon);
 }
