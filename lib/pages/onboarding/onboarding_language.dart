@@ -16,12 +16,7 @@ class _OnboardingLanguagePageState extends State<OnboardingLanguagePage> {
   final List<String> languages = [
     'Bahasa Jawa',
     'Bahasa Sunda',
-    'Bahasa Bali',
     'Bahasa Batak',
-    'Bahasa Aceh',
-    'Bahasa Minangkabau',
-    'Bahasa Madura',
-    'Bahasa Bugis',
   ];
 
   @override
