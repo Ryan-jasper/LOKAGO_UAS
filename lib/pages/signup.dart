@@ -5,6 +5,7 @@ import 'onboarding/onboarding_language.dart';
 import '../widgets/button.dart';
 import '../services/auth_service.dart';
 import 'forget_pass.dart';
+import 'login.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -62,29 +63,18 @@ class _SignupPageState extends State<SignupPage> {
         ),
       );
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
-        try {
-          await AuthService().signInWithEmail(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          );
-
-          if (!mounted) return;
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const OnboardingLanguagePage(),
-            ),
-          );
-          return;
-        } catch (_) {}
-      }
-
       String message = 'Gagal mendaftar';
 
       if (e.code == 'email-already-in-use') {
-        message = 'Email sudah terdaftar';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email sudah terdaftar. Silakan login.')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()), // sesuaikan import & nama class login page Anda
+        );
+        return;
       } else if (e.code == 'invalid-email') {
         message = 'Format email tidak valid';
       } else if (e.code == 'weak-password') {

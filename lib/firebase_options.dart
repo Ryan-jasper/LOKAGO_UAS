@@ -45,22 +45,24 @@ class DefaultFirebaseOptions {
     projectId: 'lokago-3646d',
     storageBucket: 'lokago-3646d.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDOhOckQC2p5rERuzaqv33CP-5gxtYTpKE',
     appId: '1:249245937428:ios:bfed4f4fbd2b61e85b5c01',
     messagingSenderId: '249245937428',
     projectId: 'lokago-3646d',
     storageBucket: 'lokago-3646d.firebasestorage.app',
+    androidClientId: '249245937428-l24vprlq8k424sr16q2enrolcgrckdb2.apps.googleusercontent.com',
+    iosClientId: '249245937428-o4i5an2bbu0o8aj7ssd07apl9hb92dhm.apps.googleusercontent.com',
     iosBundleId: 'com.example.application10',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDOhOckQC2p5rERuzaqv33CP-5gxtYTpKE',
     appId: '1:249245937428:ios:bfed4f4fbd2b61e85b5c01',
     messagingSenderId: '249245937428',
     projectId: 'lokago-3646d',
     storageBucket: 'lokago-3646d.firebasestorage.app',
+    androidClientId: '249245937428-l24vprlq8k424sr16q2enrolcgrckdb2.apps.googleusercontent.com',
+    iosClientId: '249245937428-o4i5an2bbu0o8aj7ssd07apl9hb92dhm.apps.googleusercontent.com',
     iosBundleId: 'com.example.application10',
   );
 
