@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function validLanguageId(languageId) {
+      return languageId in ['sunda', 'jawa', 'batak_toba'];
+    }
+    match /languages/{languageId} {
+      allow read: if true;
+      allow write: if false;
+      match /units/{unitId} {
+        allow read: if true;
+        allow write: if false;
+      }
+      match /dictionary/{wordId} {
+        allow read: if true;
+        allow write: if false;
+      }
+      match /levels/{levelId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hearts']);
+      allow delete: if false;
+
+      match /languageProgress/{languageId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && validLanguageId(languageId);
+        allow delete: if false;
+      }
+
+      match /heart_transactions/{txId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /{subcollection}/{docId} {
+        allow read, create, update: if isOwner(uid)
+          && subcollection != 'heart_transactions';
+        allow delete: if false;
+      }
+    }
+    match /userProgress/{progressId} {
+      allow read, create, update: if signedIn()
+        && progressId.matches(request.auth.uid + '_.*');
+      allow delete: if false;
+    }
+  }
+}

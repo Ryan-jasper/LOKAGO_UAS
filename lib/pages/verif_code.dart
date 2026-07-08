@@ -29,17 +29,29 @@ class _VerificationCodePageState extends State<VerificationCodePage> {
     codeController.dispose();
     super.dispose();
   }
+  
+  String _extractOobCode(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('http')) {
+      final uri = Uri.tryParse(trimmed);
+      final oob = uri?.queryParameters['oobCode'];
+      if (oob != null && oob.isNotEmpty) return oob;
+    }
+    return trimmed;
+  }
 
   Future<void> handleVerifyCode() async {
     try {
-      final code = codeController.text.trim();
+      final input = codeController.text.trim();
 
-      if (code.isEmpty) {
+      if (input.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kode verifikasi wajib diisi')),
+          const SnackBar(content: Text('Kode/link reset wajib diisi')),
         );
         return;
       }
+
+      final code = _extractOobCode(input);
 
       await AuthService().verifyResetCode(code: code);
 
