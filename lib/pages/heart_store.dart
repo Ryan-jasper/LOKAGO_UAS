@@ -159,6 +159,11 @@ class _HeartStorePageState extends State<HeartStorePage> {
   }
 
   Widget buildPackageCard(HeartPackage package) {
+    final isGold = package.hearts == 15;
+ 
+    final iconColor = isGold ? const Color(0xFFF4B11A) : const Color(0xFFD6372A);
+    final iconBgColor = isGold ? const Color(0xFFFFF6DA) : const Color(0xFFFCEBEA);
+ 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(18),
@@ -180,11 +185,15 @@ class _HeartStorePageState extends State<HeartStorePage> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFFCEBEA),
+              color: iconBgColor,
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
-            child: const Text('❤️', style: TextStyle(fontSize: 26)),
+            child: Icon(
+              Icons.favorite_rounded,
+              color: iconColor,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
