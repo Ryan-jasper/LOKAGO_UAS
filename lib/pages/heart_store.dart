@@ -88,37 +88,67 @@ class _HeartStorePageState extends State<HeartStorePage> {
       stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         int hearts = 0;
+        int maxHearts = 15;
+
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           hearts = (data?['hearts'] ?? 0) as int;
+          maxHearts = (data?['maxHearts'] ?? 15) as int;
         }
+
+        final isEmpty = hearts <= 0;
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderColor, width: 1),
+            borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.065),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('❤️', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
-              Text(
-                snapshot.connectionState == ConnectionState.waiting
-                    ? '...'
-                    : '$hearts Hearts',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: darkText,
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: isEmpty
+                    ? const Color(0xFFFFE8E4)
+                    : const Color(0xFFFFF0EC),
+                child: Icon(
+                  isEmpty ? Icons.favorite_border_rounded : Icons.favorite_rounded,
+                  color: const Color(0xFFD6372A),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isLoading ? '-/-' : '$hearts/$maxHearts',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: darkText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isEmpty ? 'Heart habis, yuk isi lagi' : 'Heart tersedia',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: isEmpty ? const Color(0xFFD6372A) : mutedText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

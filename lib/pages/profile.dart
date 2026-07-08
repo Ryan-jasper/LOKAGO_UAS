@@ -31,45 +31,8 @@ class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  bool _isRefillingHeart = false;
 
-  Future<void> _refillHeart(_ProfileData profile) async {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      _showSnackBar('User belum login.');
-      return;
-    }
-
-    setState(() {
-      _isRefillingHeart = true;
-    });
-
-    try {
-      await _db.collection('users').doc(user.uid).set(
-        {
-          'hearts': profile.maxHearts,
-          'maxHearts': profile.maxHearts,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      if (!mounted) return;
-
-      _showSnackBar('Heart berhasil diisi ulang.');
-    } catch (e) {
-      if (!mounted) return;
-
-      _showSnackBar('Gagal mengisi ulang heart: $e');
-    } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _isRefillingHeart = false;
-      });
-    }
-  }
+  
 
   Future<void> _confirmSignOut() async {
   final shouldLogout = await showDialog<bool>(
@@ -271,10 +234,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 18),
                         _ProfileDashboardSection(
                           profile: profile,
-                          isRefillingHeart: _isRefillingHeart,
-                          onRefillHeart: profile.hearts >= profile.maxHearts
-                              ? null
-                              : () => _refillHeart(profile),
                           onOpenLanguage: _openLanguagePage,
                         ),
                         const SizedBox(height: 14),
@@ -393,20 +352,14 @@ class _ProfileHeroCard extends StatelessWidget {
 class _ProfileDashboardSection extends StatelessWidget {
   const _ProfileDashboardSection({
     required this.profile,
-    required this.isRefillingHeart,
-    required this.onRefillHeart,
     required this.onOpenLanguage,
   });
 
   final _ProfileData profile;
-  final bool isRefillingHeart;
-  final VoidCallback? onRefillHeart;
   final VoidCallback onOpenLanguage;
 
   @override
   Widget build(BuildContext context) {
-    final refillDisabled = onRefillHeart == null || isRefillingHeart;
-
     return Column(
       children: [
         _BigStreakCard(profile: profile),

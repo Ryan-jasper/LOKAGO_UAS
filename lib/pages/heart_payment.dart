@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HeartPaymentPage extends StatefulWidget {
   final String redirectUrl;
@@ -35,8 +36,13 @@ class _HeartPaymentPageState extends State<HeartPaymentPage> {
           onNavigationRequest: (request) {
             final url = request.url;
 
-            // Midtrans akan redirect ke URL yang mengandung kata ini
-            // setelah pembayaran selesai (baik sukses, pending, maupun gagal).
+            // Deteksi link gambar/download QR, buka pakai browser eksternal
+            // karena WebView bawaan tidak bisa handle file download.
+            if (url.contains('.png') || url.contains('.jpg') || url.contains('download')) {
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              return NavigationDecision.prevent;
+            }
+
             final isFinishRedirect = url.contains('finish') ||
                 url.contains('success') ||
                 url.contains('unfinish') ||
