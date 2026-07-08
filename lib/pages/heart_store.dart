@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/payment_service.dart';
-import 'heart_payment_page.dart';
+import 'heart_payment.dart';
 
 class HeartPackage {
   final int hearts;

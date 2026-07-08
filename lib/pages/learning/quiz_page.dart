@@ -240,7 +240,7 @@ class _QuizPageState extends State<QuizPage> {
     return accepted.contains(normalizedAnswer);
   }
 
-  void _checkAnswer() {
+  Future<void> _checkAnswer() async {
     if (_hearts <= 0) {
       setState(() {
         _cannotStartBecauseNoHearts = true;
@@ -315,9 +315,21 @@ class _QuizPageState extends State<QuizPage> {
         }
 
         _heartsLostDuringQuiz++;
-        _hearts = math.max(0, _hearts - 1);
+        _hearts = math.max(0, _hearts - 1); // update UI dulu, biar instan
       }
     });
+
+    if (!isCorrect) {
+      try {
+        final result = await LearningService().deductHeartForWrongAnswer();
+        if (!mounted) return;
+        setState(() {
+          _hearts = result['hearts'] ?? _hearts;
+          _maxHearts = result['maxHearts'] ?? _maxHearts;
+        });
+      } catch (_) {
+      }
+    }
   }
 
   void _continue() {

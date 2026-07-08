@@ -1,5 +1,6 @@
 import 'dart:math' as math;
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -135,50 +136,69 @@ class LearningService {
     return items;
   }
 
+  static const String _backendUrl = 'https://lokago-backend.vercel.app';
+
+  Future<String> _getIdToken() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User belum login.');
+    final token = await user.getIdToken();
+    if (token == null) throw Exception('Gagal mengambil token autentikasi.');
+    return token;
+  }
+
   Future<Map<String, int>> getUserHearts() async {
     return syncDailyHearts();
   }
 
-  Future<Map<String, int>> syncDailyHearts() async {
-    final currentUser = _auth.currentUser;
+  /// Dipanggil setiap kali user menjawab salah di quiz, supaya kerugian
+  /// heart langsung tersimpan real-time (tidak hilang kalau user keluar
+  /// dari kuis sebelum selesai).
+  Future<Map<String, int>> deductHeartForWrongAnswer() async {
+    final token = await _getIdToken();
 
-    if (currentUser == null) {
-      return {
-        'hearts': 5,
-        'maxHearts': 15,
-      };
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/deduct-heart'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Gagal mengurangi heart: ${response.body}');
     }
 
-    final userRef = _firestore.collection('users').doc(currentUser.uid);
-    final now = DateTime.now();
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return {
+      'hearts': (data['hearts'] as num).toInt(),
+      'maxHearts': (data['maxHearts'] as num).toInt(),
+    };
+  }
 
-    return _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(userRef);
-      final userData = snapshot.data() ?? <String, dynamic>{};
+  Future<Map<String, int>> syncDailyHearts() async {
+    try {
+      final token = await _getIdToken();
 
-      final heartSync = _calculateDailyHeartSync(
-        userData: userData,
-        now: now,
+      final response = await http.post(
+        Uri.parse('$_backendUrl/api/sync-daily-hearts'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
 
-      if (!snapshot.exists || heartSync.shouldWriteDailyHeartFields) {
-        transaction.set(
-          userRef,
-          {
-            'hearts': heartSync.hearts,
-            'maxHearts': heartSync.maxHearts,
-            'lastHeartRefillDate': heartSync.lastHeartRefillDate,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
+      if (response.statusCode != 200) {
+        throw Exception('Gagal sinkronisasi heart: ${response.body}');
       }
 
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       return {
-        'hearts': heartSync.hearts,
-        'maxHearts': heartSync.maxHearts,
+        'hearts': (data['hearts'] as num).toInt(),
+        'maxHearts': (data['maxHearts'] as num).toInt(),
       };
-    });
+    } catch (_) {
+      return {'hearts': 5, 'maxHearts': 15};
+    }
   }
 
   Future<LessonCompletionResult> completeLesson({
@@ -187,6 +207,7 @@ class LearningService {
     required int totalQuestions,
     bool? forcePassed,
     int? heartsLostOverride,
+    int? heartsLostForDisplayOverride,
     int? scorePctOverride,
   }) async {
     final currentUser = _auth.currentUser;
@@ -270,12 +291,9 @@ class LearningService {
       final currentHearts = heartSync.hearts;
       final maxHearts = heartSync.maxHearts;
 
-      final heartsLost = alreadyCompleted ? 0 : wrongCount;
-
-      final newHearts = math.max(
-        0,
-        currentHearts - heartsLost,
-      );
+      final heartsLostForDisplay = alreadyCompleted
+          ? 0
+          : (heartsLostForDisplayOverride ?? heartsLostOverride ?? wrongCount);
 
       final currentStreak = _readInt(
         userData['streakDays'],
@@ -299,8 +317,6 @@ class LearningService {
         'selectedLanguageId': lesson.languageId,
         'totalXp': FieldValue.increment(xpEarned),
         'streakDays': newStreak,
-        'hearts': newHearts,
-        'maxHearts': maxHearts,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -393,8 +409,8 @@ class LearningService {
           'totalQuestions': totalQuestions,
           'xpEarned': xpEarned,
           'alreadyCompleted': alreadyCompleted,
-          'heartsLost': heartsLost,
-          'heartsRemaining': newHearts,
+          'heartsLost': heartsLostForDisplay,
+          'heartsRemaining': currentHearts,
           'streakDays': newStreak,
           'submittedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -410,9 +426,9 @@ class LearningService {
         streakDays: newStreak,
         alreadyCompleted: alreadyCompleted,
         isPassed: isPassed,
-        heartsRemaining: newHearts,
+        heartsRemaining: currentHearts,
         maxHearts: maxHearts,
-        heartsLost: heartsLost,
+        heartsLost: heartsLostForDisplay,
       );
     });
   }

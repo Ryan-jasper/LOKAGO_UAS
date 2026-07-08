@@ -137,7 +137,7 @@ class AuthService {
       'selectedLanguageId': 'sunda',
       'selectedLanguage': 'Bahasa Sunda',
       'hearts': 5,
-      'maxHearts': 5,
+      'maxHearts': 15,
       'streakDays': 0,
       'lastStudyDate': null,
       'earnedBadgeIds': [],

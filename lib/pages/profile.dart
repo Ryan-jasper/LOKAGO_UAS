@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/button.dart';
 import 'home.dart';
+import 'heart_store.dart';
 import 'peta.dart';
 import 'streak.dart';
 import 'splash.dart';
@@ -417,7 +418,17 @@ class _ProfileDashboardSection extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _HeartStatusCard(profile: profile),
+              child: _HeartStatusCard(
+                profile: profile,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const HeartStorePage(),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -560,49 +571,83 @@ class _XpLevelCard extends StatelessWidget {
 class _HeartStatusCard extends StatelessWidget {
   const _HeartStatusCard({
     required this.profile,
+    this.onTap,
   });
 
   final _ProfileData profile;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final isEmpty = profile.hearts <= 0;
 
     return _WhiteCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor:
-                isEmpty ? const Color(0xFFFFE8E4) : const Color(0xFFFFF0EC),
-            child: Icon(
-              isEmpty ? Icons.favorite_border_rounded : Icons.favorite_rounded,
-              color: _danger,
-              size: 27,
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(26),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: isEmpty
+                          ? const Color(0xFFFFE8E4)
+                          : const Color(0xFFFFF0EC),
+                      child: Icon(
+                        isEmpty
+                            ? Icons.favorite_border_rounded
+                            : Icons.favorite_rounded,
+                        color: _danger,
+                        size: 27,
+                      ),
+                    ),
+                    if (onTap != null)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0F9D6C),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  '${profile.hearts}/${profile.maxHearts}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: _textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isEmpty ? 'Heart habis, ketuk untuk isi' : 'Heart tersedia',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    fontWeight: FontWeight.w800,
+                    color: isEmpty ? _danger : _muted,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            '${profile.hearts}/${profile.maxHearts}',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: _textDark,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            isEmpty ? 'Heart habis' : 'Heart tersedia',
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.3,
-              fontWeight: FontWeight.w800,
-              color: _muted,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
