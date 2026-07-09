@@ -55,6 +55,13 @@ class _HeartPaymentPageState extends State<HeartPaymentPage> {
 
             return NavigationDecision.navigate;
           },
+          onWebResourceError: (error) {
+            if (mounted) {
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) Navigator.pop(context, true);
+              });
+             }
+          },
         ),
       )
       ..loadRequest(Uri.parse(widget.redirectUrl));

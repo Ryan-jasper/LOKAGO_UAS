@@ -94,6 +94,7 @@ class _HeartStorePageState extends State<HeartStorePage> {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           hearts = (data?['hearts'] ?? 0) as int;
           maxHearts = (data?['maxHearts'] ?? 15) as int;
+          hearts = hearts.clamp(0, maxHearts).toInt();
         }
 
         final isEmpty = hearts <= 0;

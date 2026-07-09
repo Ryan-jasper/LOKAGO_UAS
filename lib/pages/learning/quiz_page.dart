@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/learning_models.dart';
 import '../../services/learning_service.dart';
 import '../home.dart';
+import '../../services/sound_service.dart';
 
 class QuizPage extends StatefulWidget {
   const QuizPage({
@@ -65,7 +66,7 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void initState() {
     super.initState();
-
+    SoundService.instance.quizStart();
     _translateController = TextEditingController();
     _activities = _prepareActivities();
     _totalOriginalActivities = _activities.length;
@@ -319,6 +320,12 @@ class _QuizPageState extends State<QuizPage> {
       }
     });
 
+    if (isCorrect) {
+      SoundService.instance.answerCorrect();
+    } else {
+      SoundService.instance.answerWrong();
+    }
+
     if (!isCorrect) {
       try {
         final result = await LearningService().deductHeartForWrongAnswer();
@@ -327,6 +334,7 @@ class _QuizPageState extends State<QuizPage> {
           _hearts = result['hearts'] ?? _hearts;
           _maxHearts = result['maxHearts'] ?? _maxHearts;
         });
+        SoundService.instance.heartLost();
       } catch (_) {
       }
     }
@@ -349,6 +357,8 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
+    SoundService.instance.uiButton();
+    
     if (_isReviewingWrongAnswers && _failedOnReview && !_lastAnswerCorrect) {
       _finishQuiz();
       return;
@@ -432,6 +442,10 @@ class _QuizPageState extends State<QuizPage> {
     );
 
     if (!mounted) return;
+    
+    if (result.isPassed) {
+      SoundService.instance.levelComplete();
+    }
 
     Navigator.pushReplacement(
       context,
@@ -733,6 +747,7 @@ class _QuizPageState extends State<QuizPage> {
                       onSelectAnswer: (answer) {
                         if (_feedbackVisible) return;
 
+                        SoundService.instance.uiTap();
                         setState(() {
                           _selectedAnswer = answer;
                         });
@@ -740,6 +755,7 @@ class _QuizPageState extends State<QuizPage> {
                       onPickWord: (wordIndex) {
                         if (_feedbackVisible) return;
 
+                        SoundService.instance.uiTap();
                         setState(() {
                           final word = _wordBank.removeAt(wordIndex);
                           _selectedWords.add(word);
@@ -748,6 +764,7 @@ class _QuizPageState extends State<QuizPage> {
                       onRemoveWord: (wordIndex) {
                         if (_feedbackVisible) return;
 
+                        SoundService.instance.uiTap();
                         setState(() {
                           final word = _selectedWords.removeAt(wordIndex);
                           _wordBank.add(word);
@@ -755,7 +772,8 @@ class _QuizPageState extends State<QuizPage> {
                       },
                       onSelectMatching: (left, right) {
                         if (_feedbackVisible) return;
-
+                        
+                        SoundService.instance.uiTap();
                         setState(() {
                           _matchingAnswers[left] = right;
                         });
