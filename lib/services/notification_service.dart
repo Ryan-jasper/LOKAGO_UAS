@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -46,7 +47,17 @@ class NotificationService {
         _notifications.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
 
-    await androidPlugin?.requestNotificationsPermission();
+    if (androidPlugin == null) return;
+
+    // Ini satu-satunya izin yang benar-benar kita butuhkan. Izin exact
+    // alarm SENGAJA tidak diminta di sini — untuk reminder harian, telat
+    // beberapa menit tidak masalah, dan izin itu tidak berupa dialog biasa
+    // (malah membuka halaman Settings sistem serta tidak bisa dipastikan
+    // statusnya lewat return value), jadi lebih aman dihindari sama sekali.
+    final notifGranted =
+        await androidPlugin.requestNotificationsPermission();
+
+    debugPrint('NotificationService: izin notifikasi granted=$notifGranted');
   }
 
   Future<void> showTestNotification() async {
@@ -86,15 +97,27 @@ class NotificationService {
       android: androidDetails,
     );
 
-    await _notifications.zonedSchedule(
-      id: dailyReminderId,
-      title: 'Saatnya belajar di LOKAGO!',
-      body: 'Jaga streak kamu dan lanjutkan level hari ini 🔥',
-      scheduledDate: _nextInstanceOfTime(hour, minute),
-      notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+    try {
+      await _notifications.zonedSchedule(
+        id: dailyReminderId,
+        title: 'Saatnya belajar di LOKAGO!',
+        body: 'Jaga streak kamu dan lanjutkan level hari ini 🔥',
+        scheduledDate: _nextInstanceOfTime(hour, minute),
+        notificationDetails: notificationDetails,
+        // inexactAllowWhileIdle TIDAK butuh izin SCHEDULE_EXACT_ALARM,
+        // dan cukup akurat untuk reminder harian (bisa meleset beberapa
+        // menit, bukan masalah untuk kasus ini).
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+
+      debugPrint(
+        'NotificationService: reminder harian terjadwal jam $hour:$minute',
+      );
+    } catch (e) {
+      debugPrint('NotificationService: gagal menjadwalkan reminder -> $e');
+      rethrow;
+    }
   }
 
   Future<void> cancelDailyReminder() async {
