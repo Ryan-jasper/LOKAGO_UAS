@@ -49,11 +49,6 @@ class NotificationService {
 
     if (androidPlugin == null) return;
 
-    // Ini satu-satunya izin yang benar-benar kita butuhkan. Izin exact
-    // alarm SENGAJA tidak diminta di sini — untuk reminder harian, telat
-    // beberapa menit tidak masalah, dan izin itu tidak berupa dialog biasa
-    // (malah membuka halaman Settings sistem serta tidak bisa dipastikan
-    // statusnya lewat return value), jadi lebih aman dihindari sama sekali.
     final notifGranted =
         await androidPlugin.requestNotificationsPermission();
 
@@ -61,15 +56,17 @@ class NotificationService {
   }
 
   Future<void> showTestNotification() async {
-    const androidDetails = AndroidNotificationDetails(
-      'lokago_daily_reminder',
+    final androidDetails = AndroidNotificationDetails(
+      'lokago_daily_reminder_v2',
       'Daily Learning Reminder',
       channelDescription: 'Reminder harian untuk belajar bahasa daerah.',
       importance: Importance.high,
       priority: Priority.high,
+      sound: const RawResourceAndroidNotificationSound('notification_sound'),
+      playSound: true,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
     );
 
@@ -85,15 +82,17 @@ class NotificationService {
     int hour = 19,
     int minute = 0,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'lokago_daily_reminder',
+    final androidDetails = AndroidNotificationDetails(
+      'lokago_daily_reminder_v2',
       'Daily Learning Reminder',
       channelDescription: 'Reminder harian untuk belajar bahasa daerah.',
       importance: Importance.high,
       priority: Priority.high,
+      sound: const RawResourceAndroidNotificationSound('notification_sound'),
+      playSound: true,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
     );
 
@@ -104,9 +103,6 @@ class NotificationService {
         body: 'Jaga streak kamu dan lanjutkan level hari ini 🔥',
         scheduledDate: _nextInstanceOfTime(hour, minute),
         notificationDetails: notificationDetails,
-        // inexactAllowWhileIdle TIDAK butuh izin SCHEDULE_EXACT_ALARM,
-        // dan cukup akurat untuk reminder harian (bisa meleset beberapa
-        // menit, bukan masalah untuk kasus ini).
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );

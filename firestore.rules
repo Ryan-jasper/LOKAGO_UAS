@@ -12,18 +12,18 @@ service cloud.firestore {
     }
     match /languages/{languageId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if request.auth != null;   // sementara dibuka untuk user login
       match /units/{unitId} {
         allow read: if true;
-        allow write: if false;
+        allow write: if request.auth != null;
       }
       match /dictionary/{wordId} {
         allow read: if true;
-        allow write: if false;
+        allow write: if request.auth != null;
       }
       match /levels/{levelId} {
         allow read: if true;
-        allow write: if false;
+        allow write: if request.auth != null;
       }
     }
     match /users/{uid} {
