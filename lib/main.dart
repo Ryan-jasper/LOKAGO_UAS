@@ -15,7 +15,7 @@ Future<void> main() async {
 
   await NotificationService.instance.init();
 
-  const bool shouldSeedDatabase = true;
+  const bool shouldSeedDatabase = false;
 
   if (shouldSeedDatabase) {
     try {
